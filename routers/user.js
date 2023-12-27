@@ -1,9 +1,11 @@
 'use strict'
 const express = require('express')
+const jwt = require('jsonwebtoken')
+const bcrypt = require('bcrypt')
+
 const auth = require('../middleware/auth')
 const client = require('../db/postgres')
 const createUser = require('../db/user')
-console.log(typeof createUser)
 
 const router = new express.Router()
 
@@ -12,12 +14,14 @@ router.post('/user', async (req, res) => {
   try {
     console.log('create new user')
     const user = await createUser(req.body)
-    console.log(user)
     await client.connect()
-    const result = await client.query(`INSERT INTO users (email, password, username) VALUES ('${user.email}', '${user.password}', '${user.username}');`)
-    res.status(201).send(result)
+    const result = await client.query(`INSERT INTO users (email, password, username) VALUES ('${user.email}', '${user.password}', '${user.username}') RETURNING user_id;`)
+    const token = jwt.sign({ _id: result.rows[0] }, process.env.JWT_SECRET)
+    res.status(201).send({ ...result.rows[0], token })
+    await client.end()
+    console.log('client has disconnected')
   } catch (e) {
-    console.log(e)
+    // console.log(e)
     res.status(400).send(e.toString())
   }
 })
@@ -25,10 +29,17 @@ router.post('/user', async (req, res) => {
 //LOGIN USER
 router.post('/user/login', async (req, res) => {
   try {
-    //try to log in
-    res.status(201).send('LOGGED IN (return token/user)')
+    console.log('login user')
+    const encryptedPassword = await bcrypt.hash(req.body.password, 10)
+    console.log('asdf', encryptedPassword)
+    await client.connect()
+    const result = await client.query(`SELECT * FROM users;`)
+    // const result = await client.query(`SELECT * FOM users WHERE email = '${req.body.email}' AND password = '${encryptedPassword}';`)
+    res.status(201).send(result)
+    await client.end()
+    console.log('client has disconnected')
   } catch (e) {
-    res.status(400).send(e)
+    res.status(400).send(e.toString())
   }
 })
 
