@@ -4,24 +4,21 @@ const jwt = require('jsonwebtoken')
 const bcrypt = require('bcrypt')
 
 const auth = require('../middleware/auth')
-const client = require('../db/postgres')
-const createUser = require('../db/user')
+const pool = require('../db/postgres')
+const createUser = require('../models/user')
 
 const router = new express.Router()
 
 //CREATE USER
 router.post('/user', async (req, res) => {
   try {
-    console.log('create new user')
+    console.log('create new user route')
     const user = await createUser(req.body)
-    await client.connect()
-    const result = await client.query(`INSERT INTO users (email, password, username) VALUES ('${user.email}', '${user.password}', '${user.username}') RETURNING user_id;`)
+    await pool.connect()
+    const result = await pool.query(`INSERT INTO users (email, password, username) VALUES ('${user.email}', '${user.password}', '${user.username}') RETURNING user_id;`)
     const token = jwt.sign({ _id: result.rows[0] }, process.env.JWT_SECRET)
     res.status(201).send({ ...result.rows[0], token })
-    await client.end()
-    console.log('client has disconnected')
   } catch (e) {
-    // console.log(e)
     res.status(400).send(e.toString())
   }
 })
@@ -29,15 +26,21 @@ router.post('/user', async (req, res) => {
 //LOGIN USER
 router.post('/user/login', async (req, res) => {
   try {
-    console.log('login user')
-    const encryptedPassword = await bcrypt.hash(req.body.password, 10)
-    console.log('asdf', encryptedPassword)
-    await client.connect()
-    const result = await client.query(`SELECT * FROM users;`)
-    // const result = await client.query(`SELECT * FOM users WHERE email = '${req.body.email}' AND password = '${encryptedPassword}';`)
-    res.status(201).send(result)
-    await client.end()
-    console.log('client has disconnected')
+    console.log('login user route')
+    await pool.connect()
+    const result = await pool.query(`SELECT user_id, password FROM users WHERE email = '${req.body.email}';`)
+    if (result.rows.length === 0) {
+      res.status(400).send('invalid user/pw')
+    } else {
+      const validatedUser = await bcrypt.compare(req.body.password, result.rows[0].password)
+      if (!validatedUser) {
+        res.status(400).send('invalid user/pw')
+      } else {
+        console.log(result.rows[0].user_id)
+        const token = jwt.sign({ _id: result.rows[0].user_id }, process.env.JWT_SECRET)
+        res.status(200).send({ user_id: result.rows[0].user_id, token })
+      }
+    }
   } catch (e) {
     res.status(400).send(e.toString())
   }
