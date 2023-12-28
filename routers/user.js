@@ -69,7 +69,10 @@ router.post('/user/logoutAll', auth, async (req, res) => {
 //GET USER
 router.get('/user/profile', auth, async (req, res) => {
   try {
-    res.status(200).send(req.user)
+    console.log('get user route')
+    await pool.connect()
+    const result = await pool.query(`SELECT user_id, email, username FROM users WHERE user_id = ${req.user_id}`)
+    res.status(200).send(result.rows[0])
   } catch (e) {
     res.status(500).send(e)
   }
