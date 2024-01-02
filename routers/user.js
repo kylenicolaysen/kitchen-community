@@ -15,7 +15,7 @@ router.post('/user', async (req, res) => {
     console.log('create new user route')
     const user = await createUser(req.body)
     await pool.connect()
-    const result = await pool.query(`INSERT INTO users (email, password, username) VALUES ('${user.email}', '${user.password}', '${user.username}') RETURNING user_id;`)
+    const result = await pool.query(`INSERT INTO app_user (email, password, username) VALUES ('${user.email}', '${user.password}', '${user.username}') RETURNING user_id;`)
     const token = jwt.sign({ _id: result.rows[0] }, process.env.JWT_SECRET)
     res.status(201).send({ ...result.rows[0], token })
   } catch (e) {
@@ -28,7 +28,7 @@ router.post('/user/login', async (req, res) => {
   try {
     console.log('login user route')
     await pool.connect()
-    const result = await pool.query(`SELECT user_id, password FROM users WHERE email = '${req.body.email}';`)
+    const result = await pool.query(`SELECT user_id, password FROM app_user WHERE email = '${req.body.email}';`)
     if (result.rows.length === 0) {
       res.status(401).send('invalid user/pw')
     } else {
@@ -71,7 +71,7 @@ router.get('/user/profile', auth, async (req, res) => {
   try {
     console.log('get user route')
     await pool.connect()
-    const result = await pool.query(`SELECT user_id, email, username FROM users WHERE user_id = ${req.user_id}`)
+    const result = await pool.query(`SELECT user_id, email, username FROM app_user WHERE user_id = ${req.user_id}`)
     res.status(200).send(result.rows[0])
   } catch (e) {
     res.status(500).send(e)
@@ -93,7 +93,7 @@ router.delete('/user', auth, async (req, res) => {
   try {
     console.log('delete user route')
     await pool.connect()
-    const result = await pool.query(`DELETE FROM users WHERE user_id = ${req.user_id}`)
+    const result = await pool.query(`DELETE FROM app_user WHERE user_id = ${req.user_id}`)
     res.send(result) //need to fix return
   } catch (e) {
     res.status(500).send(e)
